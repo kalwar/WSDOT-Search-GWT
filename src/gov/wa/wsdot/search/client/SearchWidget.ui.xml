@@ -1,0 +1,69 @@
+<!DOCTYPE ui:UiBinder SYSTEM "http://dl.google.com/gwt/DTD/xhtml.ent">
+<ui:UiBinder xmlns:ui="urn:ui:com.google.gwt.uibinder"
+	xmlns:g="urn:import:com.google.gwt.user.client.ui">
+	
+	<ui:style>
+		.photos { width: 474px; margin: 0px; padding: 0px; cursor: pointer; cursor: hand; }
+		.alerts { width: 225px; margin: 0px; padding: 0px; border-left: 3px solid #017359 !important; }
+		.alertsDisclosurePanel { width: 242px; float: right;}
+		.pagination { list-style: none outside none; margin: 0 22%; padding: 5px 0 0; text-align: center; width: 56%; }
+		.pagination li { display: inline; margin: 0; padding: 0 0.5em 0 0.5em; background-image: url("") !important; }
+		.boosted { border:1px solid #CCC; margin:10px 0; padding:0 10px; }
+		.bingLogo { width: 155px; float: right; }
+		.searchResultsFor { padding: 5px 0; }
+	</ui:style>
+	
+	<g:HTMLPanel ui:field="htmlPanel">
+	
+		<div class="leftnav">
+			<g:HTMLPanel ui:field="leftNavBoxHTMLPanel" styleName="leftnavbox"> 
+            	<h4 class="header greyBg">Related Topics</h4>
+            	<g:HTMLPanel ui:field="relatedTopicsHTMLPanel" styleName="content" />
+        	</g:HTMLPanel>
+        	<div class="leftnavbox"> 
+            	<h4 class="header greyBg">Feedback</h4>
+            	<div class="content">
+            	    <ul>
+            		    <li>We're trying out a new search page. <a href="http://www.wsdot.wa.gov/contact/webfeedback.htm">What do you think?</a></li>
+            		</ul>
+            	</div>
+        	</div>        	
+          	<div style="height:125px;"></div> 
+		</div>
+
+		<div id="main" style="float:left;"> 
+        	<h2 style="font-size:1.7em;padding-bottom:10px;">Search</h2>
+            <g:HTMLPanel ui:field="bingLogoHTMLPanel" styleName="{style.bingLogo}">
+            	<g:Image url="images/binglogo_en.gif" title="Web results by Bing" />
+			</g:HTMLPanel>
+
+			<g:HorizontalPanel ui:field="searchPanel" spacing="5">
+				<g:SuggestBox ui:field="searchSuggestBox" width="290px" />
+				<g:Button ui:field="searchButton">Search</g:Button>					
+				<g:cell verticalAlignment="ALIGN_MIDDLE" >					
+					<g:Image ui:field="loadingImage" url="images/ajax-loader.gif" title="Loading..." />
+				</g:cell>		
+			</g:HorizontalPanel>
+			
+			<g:HTMLPanel ui:field="boostedResultsHTMLPanel" styleName="{style.boosted}" />
+			<g:HTML ui:field="searchResultsForHTML" styleName="{style.searchResultsFor}" />
+			
+			<g:DisclosurePanel ui:field="alertsDisclosurePanel" animationEnabled="true" open="true" addStyleNames="{style.alertsDisclosurePanel}">
+				<g:header>Travel alert results</g:header>
+				<g:HTMLPanel ui:field="alertsHTMLPanel" styleName="{style.alerts}" />
+			</g:DisclosurePanel>
+
+			<g:DisclosurePanel ui:field="photosDisclosurePanel" animationEnabled="true" open="true">
+				<g:header >Photo results</g:header>
+				<g:HTMLPanel ui:field="flickrPhotosHTMLPanel" styleName="{style.photos}" />
+			</g:DisclosurePanel>
+
+			<g:HTML ui:field="searchResultsHTML" />			
+			<g:HTMLPanel ui:field="paginationHTMLPanel" styleName="{style.pagination}" />
+
+		</div>  
+ 
+      <div class="cl"></div>
+		
+	</g:HTMLPanel>
+</ui:UiBinder> 
