@@ -556,6 +556,9 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 		link.addClickHandler(new ClickHandler() {
 			@Override
 			public void onClick(ClickEvent event) {
+				if (ANALYTICS_ENABLED) {
+					Analytics.trackEvent(EVENT_TRACKING_CATEGORY, "Travel Alerts", item.getEventCategory());
+				}				
 				String description = "<b>" + item.getEventCategory() + "</b> " + item.getHeadlineDescription();
 				Popup popup = new Popup(map, description, item.getAlertID());
 				popup.setAnimationEnabled(true);
