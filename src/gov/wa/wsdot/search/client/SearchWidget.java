@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Washington State Department of Transportation
+ * Copyright (c) 2012 Washington State Department of Transportation
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -661,7 +661,7 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 				sb.append(buildResult(searchResults.get(i)));
 			}		
 			searchResultsHTML.setHTML(sb.toString());
-			int totalPages = searchData.getTotal() / 10; // 10 results per page
+			int totalPages = (searchData.getTotal() + 10 - 1) / 10; // (results + resultsPerPage - 1) / resultsPerPage
 			PageLinks pageLinks = new PageLinks(totalPages, Integer.parseInt(page), query);
 			paginationHTMLPanel.add(pageLinks);
 		} else {
