@@ -25,6 +25,7 @@ import gov.wa.wsdot.search.shared.Photo;
 import gov.wa.wsdot.search.shared.Photos;
 import gov.wa.wsdot.search.shared.Results;
 import gov.wa.wsdot.search.shared.Search;
+import gov.wa.wsdot.search.shared.Words;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -45,12 +46,14 @@ import com.google.gwt.event.logical.shared.ValueChangeHandler;
 import com.google.gwt.http.client.URL;
 import com.google.gwt.http.client.UrlBuilder;
 import com.google.gwt.i18n.client.NumberFormat;
+import com.google.gwt.jsonp.client.JsonpRequestBuilder;
 import com.google.gwt.safehtml.shared.SafeHtmlUtils;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.client.History;
 import com.google.gwt.user.client.Timer;
 import com.google.gwt.user.client.Window;
+import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwt.user.client.ui.Anchor;
 import com.google.gwt.user.client.ui.Button;
 import com.google.gwt.user.client.ui.Composite;
@@ -69,23 +72,52 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 	interface SearchWidgetUiBinder extends UiBinder<Widget, SearchWidget> { }
 	private static SearchWidgetUiBinder uiBinder = GWT.create(SearchWidgetUiBinder.class);
 	
-	@UiField Button searchButton;
-	@UiField DisclosurePanel alertsDisclosurePanel;
-	@UiField DisclosurePanel photosDisclosurePanel;
-	@UiField HTML searchResultsForHTML;
-	@UiField HTML searchResultsHTML;
-	@UiField HTMLPanel alertsHTMLPanel;
-	@UiField HTMLPanel paginationHTMLPanel;
-	@UiField HTMLPanel bingLogoHTMLPanel;
-	@UiField HTMLPanel leftNavBoxHTMLPanel;
-	@UiField HTMLPanel relatedTopicsHTMLPanel;
-	@UiField HTMLPanel flickrPhotosHTMLPanel;
-	@UiField HTMLPanel boostedResultsHTMLPanel;
-	@UiField Image loadingImage;
-	@UiField HorizontalPanel searchPanel;
-	@UiField(provided=true) SuggestBox searchSuggestBox;
+	@UiField
+	Button searchButton;
 	
-	private static final boolean ANALYTICS_ENABLED = false; 
+	@UiField
+	static DisclosurePanel alertsDisclosurePanel;
+
+	@UiField
+	static DisclosurePanel photosDisclosurePanel;
+
+	@UiField
+	static HTML searchResultsForHTML;
+
+	@UiField
+	static HTML searchResultsHTML;
+
+	@UiField
+	static HTMLPanel alertsHTMLPanel;
+
+	@UiField
+	static HTMLPanel paginationHTMLPanel;
+
+	@UiField
+	static HTMLPanel bingLogoHTMLPanel;
+
+	@UiField
+	static HTMLPanel leftNavBoxHTMLPanel;
+
+	@UiField
+	static HTMLPanel relatedTopicsHTMLPanel;
+
+	@UiField
+	static HTMLPanel flickrPhotosHTMLPanel;
+
+	@UiField
+	static HTMLPanel boostedResultsHTMLPanel;
+
+	@UiField
+	static Image loadingImage;
+
+	@UiField
+	HorizontalPanel searchPanel;
+
+	@UiField(provided=true)
+	SuggestBox searchSuggestBox;
+	
+	private static final boolean ANALYTICS_ENABLED = true; 
 	
 	/**
 	 * To use the Flickr API you need to have an application key. An application key can
@@ -116,11 +148,10 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 	private static final String JSON_URL_HIGHWAY_ALERTS = "http://data.wsdot.wa.gov/mobile/HighwayAlertsCallback.js";
 	private static final String EVENT_TRACKING_CATEGORY = "Search"; // The Event Category title in Google Analytics 
 	
-	private int jsonRequestId = 0;
-	private BulletList list = new BulletList();
+	private static BulletList list = new BulletList();
 	private Timer timer;
 	
-	private final MultiWordSuggestOracle oracle = new MultiWordSuggestOracle();
+	private final static MultiWordSuggestOracle oracle = new MultiWordSuggestOracle();
 	
 	public SearchWidget() {
 		searchSuggestBox = new SuggestBox(oracle); // Need to create SuggestBox before initializing uiBinder
@@ -195,8 +226,8 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 		
 		// Append the name of the callback function to the JSON URL.
 		url += searchString;
-		url = URL.encode(url) + "&callback=";
-		getJsonSuggestions(jsonRequestId++, url, this, searchString);
+		url = URL.encode(url);
+		getSuggestionData(url);
 	}
 	
 	/**
@@ -261,16 +292,16 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 			// Append the name of the callback function to the JSON URL.
 			url += searchString;
 			url += "&page=" + page;
-			url = URL.encode(url) + "&callback=";
+			url = URL.encode(url);
 			
 			// Append search query to Flickr url.
 			url_flickr += searchString;
-			url_flickr = URL.encode(url_flickr) + "&jsoncallback=";
+			url_flickr = URL.encode(url_flickr);
 			
 			// Send requests to remote servers with calls to JSNI methods.
-			getJson(jsonRequestId++, url, this, searchString, page);
-			getJsonFlickr(jsonRequestId++, url_flickr, this, searchString);
-			getJsonHighwayAlerts(jsonRequestId++, url_highway_alerts, this, searchString);
+			getSearchData(url, searchString, page);
+			getPhotoData(url_flickr, searchString);
+			getHighwayAlertsData(url_highway_alerts, searchString);
 		}		
 	}	
 
@@ -288,236 +319,106 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 		oracle.clear();
 		alertsHTMLPanel.clear();
 	}
-
-	/**
-	 * Make call to remote search.usa.gov server for type ahead results
-	 * 
-	 * @param requestId
-	 * @param url
-	 * @param handler
-	 * @param query
-	 */
-	private native static void getJsonSuggestions(int requestId, String url, SearchWidget handler, String query) /*-{
-		var callback = "callback" + requestId;
-		// Create a script element
-		var script = document.createElement("script");
-		script.setAttribute("src", url+callback);
-		script.setAttribute("type", "text/javascript");
-		
-		// Define the callback function on the window object
-		window[callback] = function(jsonObj) {
-		// The callback function passes the JSON data as a JavaScript object to the Java method, handleJsonResponse
-			handler.@gov.wa.wsdot.search.client.SearchWidget::handleJsonResponseSuggestions(Lcom/google/gwt/core/client/JavaScriptObject;)(jsonObj);
-			window[callback + "done"] = true;
-		}
-		
-		// JSON download has 5-second timeout.
-		setTimeout(function() {
-			if (!window[callback + "done"]) {
-				 handler.@gov.wa.wsdot.search.client.SearchWidget::handleJsonResponseSuggestions(Lcom/google/gwt/core/client/JavaScriptObject;)(null);
-			}
-			
-			// Cleanup. Remove script and callback elements.
-			document.body.removeChild(script);
-			delete window[callback];
-			delete window[callback + "done"];
-		}, 5000);
-		
-		// Attach the script element to the document body.
-		document.body.appendChild(script);		
-	}-*/;
 	
 	/**
-	 * Make call to remote search.usa.gov server
+	 * Make call to remote search.usa.gov server for search result data
 	 * 
-	 * @param requestId
-	 * @param url
-	 * @param handler
-	 * @param query
 	 * @param page 
+	 * @param query 
+	 * @param url 
 	 */
-	private native static void getJson(int requestId, String url, SearchWidget handler, String query, String page) /*-{
-		var callback = "callback" + requestId;
-		// Create a script element
-		var script = document.createElement("script");
-		script.setAttribute("src", url+callback);
-		script.setAttribute("type", "text/javascript");
-		
-		// Define the callback function on the window object
-		window[callback] = function(jsonObj) {
-		// The callback function passes the JSON data as a JavaScript object to the Java method, handleJsonResponse
-			handler.@gov.wa.wsdot.search.client.SearchWidget::handleJsonResponse(Lcom/google/gwt/core/client/JavaScriptObject;Ljava/lang/String;Ljava/lang/String;)(jsonObj, query, page);
-			window[callback + "done"] = true;
-		}
-		
-		// JSON download has 5-second timeout.
-		setTimeout(function() {
-			if (!window[callback + "done"]) {
-				 handler.@gov.wa.wsdot.search.client.SearchWidget::handleJsonResponse(Lcom/google/gwt/core/client/JavaScriptObject;Ljava/lang/String;Ljava/lang/String;)(null, query, page);
+	private static void getSearchData(String url, final String query, final String page) {
+		JsonpRequestBuilder jsonp = new JsonpRequestBuilder();
+
+		jsonp.requestObject(url, new AsyncCallback<Search>() {
+
+			@Override
+			public void onFailure(Throwable caught) {
+				searchResultsForHTML.setHTML("<h4>Sorry. We had a problem getting the results for you.</h4>");
+				loadingImage.setVisible(false);
 			}
-			
-			// Cleanup. Remove script and callback elements.
-			document.body.removeChild(script);
-			delete window[callback];
-			delete window[callback + "done"];
-		}, 5000);
-		
-		// Attach the script element to the document body.
-		document.body.appendChild(script);
-	}-*/;
 
-	/**
-	 * Make call to remote Flickr server
-	 * 
-	 * @param requestId
-	 * @param url
-	 * @param handler
-	 * @param query
-	 */
-	private native static void getJsonFlickr(int requestId, String url, SearchWidget handler, String query)  /*-{
-		var callback = "callback" + requestId;
-		// Create a script element
-		var script = document.createElement("script");
-		script.setAttribute("src", url+callback);
-		script.setAttribute("type", "text/javascript");
-		
-		// Define the callback function on the window object
-		window[callback] = function(jsonObj) {
-		// The callback function passes the JSON data as a JavaScript object to the Java method, handleJsonResponse
-			handler.@gov.wa.wsdot.search.client.SearchWidget::handleJsonResponseFlickr(Lcom/google/gwt/core/client/JavaScriptObject;Ljava/lang/String;)(jsonObj, query);
-			window[callback + "done"] = true;
-		}
-		
-		// JSON download has 5-second timeout.
-		setTimeout(function() {
-			if (!window[callback + "done"]) {
-				 handler.@gov.wa.wsdot.search.client.SearchWidget::handleJsonResponseFlickr(Lcom/google/gwt/core/client/JavaScriptObject;Ljava/lang/String;)(null, query);
+			@Override
+			public void onSuccess(Search search) {
+				if (search.getResults() != null) {
+					updateResults(search, query, page);
+				}
 			}
-			
-			// Cleanup. Remove script and callback elements.
-			document.body.removeChild(script);
-			delete window[callback];
-			delete window[callback + "done"];
-		}, 5000);
-		
-		// Attach the script element to the document body.
-		document.body.appendChild(script);		
-	}-*/;	
 
-	/**
-	 * Make call to WSDOT data server to retrieve current high impact alerts.
-	 * 
-	 * @param requestId
-	 * @param url
-	 * @param handler
-	 * @param query
-	 */
-	private native static void getJsonHighwayAlerts(int requestId, String url, SearchWidget handler, String query) /*-{
-		var callback = "callback";
-		// Create a script element
-		var script = document.createElement("script");
-		script.setAttribute("src", url + "?" + requestId);
-		script.setAttribute("type", "text/javascript");
-		
-		// Define the callback function on the window object
-		window[callback] = function(jsonObj) {
-		// The callback function passes the JSON data as a JavaScript object to the Java method, handleJsonResponse
-			handler.@gov.wa.wsdot.search.client.SearchWidget::handleJsonResponseHighwayAlerts(Lcom/google/gwt/core/client/JavaScriptObject;Ljava/lang/String;)(jsonObj, query);
-			window[callback + "done"] = true;
-		}
-		
-		// JSON download has 5-second timeout.
-		setTimeout(function() {
-			if (!window[callback + "done"]) {
-				 handler.@gov.wa.wsdot.search.client.SearchWidget::handleJsonResponseHighwayAlerts(Lcom/google/gwt/core/client/JavaScriptObject;Ljava/lang/String;)(null, query);
-			}
-			
-			// Cleanup. Remove script and callback elements.
-			document.body.removeChild(script);
-			delete window[callback];
-			delete window[callback + "done"];
-		}, 5000);
-		
-		// Attach the script element to the document body.
-		document.body.appendChild(script);		
-	}-*/;
-	
-	/**
-	 * Convert the string of JSON into JavaScript object
-	 */
-	private final native Search getSearchData(JavaScriptObject jso) /*-{
-		return jso;
-	}-*/;
-
-	/**
-	 * Convert the string of JSON into JavaScript object
-	 */
-	private final native Photos getPhotoData(JavaScriptObject jso) /*-{
-		return jso;
-	}-*/;
-
-	/**
-	 * Convert the string of JSON into JavaScript object
-	 */	
-	private final native JsArrayString getSuggestionData(JavaScriptObject jso) /*-{
-		return jso;
-	}-*/;	
-
-	/**
-	 * Convert the string of JSON into JavaScript object
-	 */	
-	private final native HighwayAlerts getHighwayAlertsData(JavaScriptObject jso) /*-{
-		return jso;
-	}-*/;	
-	
-	/**
-	 * Handle the response to the request for search data from a remote server
-	 * 
-	 * @param jso
-	 * @param query
-	 * @param page
-	 */
-	public void handleJsonResponse(JavaScriptObject jso, String query, String page) {
-		if (jso == null) {
-	    	Window.alert("Couldn't retrieve results");
-	    	return;
-	    }
-		updateResults(getSearchData(jso), query, page);
+		});		
 	}
 
 	/**
-	 * Handle the response to the request for photo data from a remote server
+	 * Make call to remote Flickr server
+	 * @param query 
+	 * @param url_flickr 
 	 */
-	public void handleJsonResponseFlickr(JavaScriptObject jso, String query) {
-		if (jso == null) {
-	    	Window.alert("Couldn't retrieve results from Flickr");
-	    	return;
-	    }
-		updatePhotoResults(getPhotoData(jso), query);
+	private static void getPhotoData(String url, final String query) {
+		JsonpRequestBuilder jsonp = new JsonpRequestBuilder();
+		jsonp.setCallbackParam("jsoncallback");
+
+		jsonp.requestObject(url, new AsyncCallback<Photos>() {
+
+			@Override
+			public void onFailure(Throwable caught) {
+				// Just fail silently here.
+			}
+
+			@Override
+			public void onSuccess(Photos photos) {
+				if (photos.getPhotos().getPhoto() != null) {
+					updatePhotoResults(photos, query);
+				}
+			}
+
+		});	
+	}
+
+	/**
+	 * Make call to remote search.usa.gov server for type ahead results
+	 */	
+	private static void getSuggestionData(String url) {
+		JsonpRequestBuilder jsonp = new JsonpRequestBuilder();
+
+		jsonp.requestObject(url, new AsyncCallback<Words>() {
+
+			@Override
+			public void onFailure(Throwable caught) {
+				// Just fail silently here.
+			}
+
+			@Override
+			public void onSuccess(Words words) {
+				if (words.getWords() != null) {
+					updateSuggestions(words);
+				}
+			}
+
+		});	
 	}	
 
 	/**
-	 * Handle the response for search type ahead data from a remote server
-	 * 
-	 * @param jso
-	 */
-	public void handleJsonResponseSuggestions(JavaScriptObject jso) {
-		if (jso == null) {
-			// Just fail silently here.
-	    	return;
-	    }
-		updateSuggestions(getSuggestionData(jso));
-	}	
+	 * Make call to WSDOT data server to retrieve current high impact alerts.
+	 */	
+	private static void getHighwayAlertsData(String url, final String query) {
+		JsonpRequestBuilder jsonp = new JsonpRequestBuilder();
+		jsonp.setPredeterminedId("HA");
 
-	/**
-	 * Handle the response to the request for highway alerts from the WSDOT data server
-	 */
-	public void handleJsonResponseHighwayAlerts(JavaScriptObject jso, String query) {
-		if (jso == null) {
-			// Just fail silently here.
-	    	return;
-	    }
-		updateHighwayAlertsResults(getHighwayAlertsData(jso), query);
+		jsonp.requestObject(url, new AsyncCallback<HighwayAlerts>() {
+
+			@Override
+			public void onFailure(Throwable caught) {
+				// Just fail silently here.
+			}
+
+			@Override
+			public void onSuccess(HighwayAlerts alerts) {
+				if (alerts.getAlerts().getItems() != null) {
+					updateHighwayAlertsResults(alerts, query);
+				}
+			}
+
+		});
 	}	
 	
 	/**
@@ -526,14 +427,20 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 	 * @param alerts
 	 * @param query
 	 */
-	private void updateHighwayAlertsResults(HighwayAlerts alerts, String query) {
+	private static void updateHighwayAlertsResults(HighwayAlerts alerts, String query) {
 		JsArray<HighwayAlertsItem> items = alerts.getAlerts().getItems();
 		
 		if (items.length() > 0) {
 			String[] tokens = query.toLowerCase().split("\\s+");
 			for (int i=0; i < items.length(); i++) {
 				String roadName = items.get(i).getStartRoadwayLocation().getRoadName();
-				int temp = Integer.parseInt(roadName); // Convert to Integer to remove leading zeros.
+				int temp = 0;
+				try {
+					temp = Integer.parseInt(roadName); // Convert to Integer to remove leading zeros.
+				}
+				catch (NumberFormatException e) { // Catches "097AR"
+					temp = Integer.parseInt(roadName.substring(0, 3)); // Now convert and remove leading zeros.
+				}
 				roadName = temp + "";
 				for (String t: tokens) {
 					if (t.matches("(i|i-|us|sr)?" + roadName)) {
@@ -545,7 +452,7 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 		}
 	}
 
-	private Widget addAlerts(final HighwayAlertsItem item) {
+	private static Widget addAlerts(final HighwayAlertsItem item) {
 		double lat = item.getStartRoadwayLocation().getLatitude();
 		double lon = item.getStartRoadwayLocation().getLongitude();
 		final String map = "http://maps.google.com/maps/api/staticmap?center=" + lat + "," + lon + "&zoom=14&size=600x400&markers=|" + lat + "," + lon + "|&sensor=false";
@@ -582,13 +489,13 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 	 * 
 	 * @param words Words to add to suggestion oracle
 	 */
-	private void updateSuggestions(JsArrayString words) {
-	    for (int i = 0; i < words.length(); ++i) {
-	        oracle.add(words.get(i));
+	private static void updateSuggestions(JavaScriptObject words) {
+	    for (int i = 0; i < ((JsArrayString) words).length(); ++i) {
+	        oracle.add(((JsArrayString) words).get(i));
 	    }
 	}
 
-	private void updatePhotoResults(Photos photos, String query) {
+	private static void updatePhotoResults(Photos photos, String query) {
 		int totalPages = photos.getPhotos().getPages();
 		JsArray<Photo> photo = photos.getPhotos().getPhoto();
 		if (photo.length() > 0) {
@@ -603,7 +510,7 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 		loadingImage.setVisible(false);
 	}
 
-	private Widget addImage(final Photo photo) {
+	private static Widget addImage(final Photo photo) {
 		Image image = new Image("http://farm" + photo.getFarm() + ".static.flickr.com/" + photo.getServer() + "/" + photo.getId() + "_" + photo.getSecret() + "_s.jpg");
 		image.setTitle(photo.getTitle());
 		image.addStyleName("photo-thumbnail");
@@ -624,7 +531,7 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 		return image;
 	}
 
-	private void updateResults(Search searchData, String query, String page) {
+	private static void updateResults(Search searchData, String query, String page) {
 		StringBuilder sb = new StringBuilder();
 		JsArray<Results> searchResults = searchData.getResults();
 		JsArrayString searchRelated = searchData.getRelated();
@@ -665,12 +572,12 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 			PageLinks pageLinks = new PageLinks(totalPages, Integer.parseInt(page), query);
 			paginationHTMLPanel.add(pageLinks);
 		} else {
-			searchResultsForHTML.setHTML("<h4>Sorry, no results found for \"" + query + "\".</h4>");
+			searchResultsForHTML.setHTML("<h4>Sorry. No results found for \"" + query + "\".</h4>");
 		}
 		loadingImage.setVisible(false);
 	}
 
-	private Widget addSearchRelated(Anchor a, final String result) {
+	private static Widget addSearchRelated(Anchor a, final String result) {
 		a.setText(result);
 		a.setHref("javascript:;");
 		a.addClickHandler(new ClickHandler() {
@@ -681,7 +588,7 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 		return a;
 	}
 
-	private String buildResult(Results result) {
+	private static String buildResult(Results result) {
 		StringBuilder sb = new StringBuilder();
 		String title = result.getTitle().replace("\ue000", "<b>").replace("\ue001", "</b>");
 		String content = result.getContent().replace("\ue000", "<b>").replace("\ue001", "</b>");
