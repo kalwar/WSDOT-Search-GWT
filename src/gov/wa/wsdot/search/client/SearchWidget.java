@@ -117,7 +117,7 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 	@UiField(provided=true)
 	SuggestBox searchSuggestBox;
 	
-	private static final boolean ANALYTICS_ENABLED = true; 
+	private static final boolean ANALYTICS_ENABLED = false; 
 	
 	/**
 	 * To use the Flickr API you need to have an application key. An application key can

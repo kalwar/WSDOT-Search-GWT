@@ -15,3 +15,8 @@ body {
 .btn-close {width:66px; height:22px; float:right; cursor:pointer; cursor:hand; padding:5px;}
 .photo-thumbnail { padding-right: 4px; }
 .alert-content { margin-top: 5px; }
+
+.gwt-DisclosurePanel .header td {
+	font-size: 1.1em;
+	font-weight: bold;
+}
