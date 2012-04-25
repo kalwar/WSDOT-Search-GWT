@@ -127,7 +127,7 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 	 */
 	private static final String FLICKR_API_KEY = "INSERT_YOUR_FLICKR_API_KEY_HERE";
 	private static final String FLICKR_USER_ID = "INSERT_YOUR_FLICKR_USER_ID_HERE";
-	private static final String FLICKR_NUMBER_OF_PHOTOS = "12";	
+	private static final String FLICKR_NUMBER_OF_PHOTOS = "12";
 	
 	/**
 	 * Use of the Search Data API requires you to register and join the
@@ -539,7 +539,7 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 		NumberFormat fmt = NumberFormat.getDecimalFormat();
 		
 		// See if there are any related topics results.
-		if (searchRelated.length() > 0) {
+		if (searchRelated != null) {
 			for (int j=0; j < searchRelated.length(); j++) {
 				ListItem item = new ListItem();
 				Anchor a = new Anchor();
@@ -551,7 +551,7 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 		}
 		
 		// See if there are any boosted results.
-		if (boostedResults.length() > 0) {
+		if (boostedResults != null) {
 			boostedResultsHTMLPanel.setVisible(true);
 			for (int i=0; i < boostedResults.length(); i++) {
 				boostedResultsHTMLPanel.add(new HTML("<p><span style=\"font-size:1.2em;\"><a href=\""+ boostedResults.get(i).getUrl() + "\" style=\"color:#036;\">"+ boostedResults.get(i).getTitle() +"</a></span><br />" +
@@ -616,10 +616,14 @@ public class SearchWidget extends Composite implements ValueChangeHandler<String
 		sb.append("<a href=\"" + result.getUnescapedUrl() + "\" style=\"color:#488048\">");
 		sb.append(prettyUrl.toString());
 		sb.append("</a>");
-		sb.append(" - ");
-		sb.append("<a href=\"" + result.getCacheUrl() + "\" style=\"color:#488048\">");
-		sb.append("Cached");
-		sb.append("</a>");
+
+		if (result.getCacheUrl() != null) {
+			sb.append(" - ");
+			sb.append("<a href=\"" + result.getCacheUrl() + "\" style=\"color:#488048\">");
+			sb.append("Cached");
+			sb.append("</a>");
+		}
+		
 		sb.append("</p>");
 		return sb.toString();
 	}
