@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<buildpath>
+	<buildpathentry external="true" kind="lib" path="/Users/dyckw/eclipse/plugins/com.google.gwt.eclipse.sdkbundle_2.5.0.v201212122040-rel-r37/gwt-2.5.0/gwt-user.jar"/>
+	<buildpathentry external="true" kind="lib" path="/Users/dyckw/eclipse/plugins/com.google.gwt.eclipse.sdkbundle_2.5.0.v201212122040-rel-r37/gwt-2.5.0/gwt-dev.jar"/>
+</buildpath>
